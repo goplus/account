@@ -1,4 +1,4 @@
-module github.com/goplus/community
+module github.com/goplus/account
 
 go 1.19
 

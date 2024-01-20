@@ -15,7 +15,7 @@ type CasdoorConfig struct {
 	applicationName  string
 }
 
-func init() {
+func Init() {
 	conf := new(CasdoorConfig)
 
 	endPoint := conf.endPoint
