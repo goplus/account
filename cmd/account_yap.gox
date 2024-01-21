@@ -1,0 +1,56 @@
+import (
+	"fmt"
+	"net/http"
+	"os"
+
+	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
+	"go.uber.org/zap"
+	"github.com/goplus/account/internal/core"
+	_ "github.com/joho/godotenv/autoload"
+)
+
+var (
+	account *core.Account
+)
+
+endpoint := os.Getenv("GOP_ACCOUNT_ENDPOINT")
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+zlog := logger.Sugar()
+
+get "/", ctx => {
+	ctx.yap "home", {}
+}
+
+get "/login", ctx => {
+	// Get URL from query string
+	redirectURL := ctx.URL.Query().Get("redirect_url")
+	loginURL := account.RedirectToCasdoor(redirectURL)
+	ctx.Redirect loginURL, http.StatusFound
+}
+
+get "/callback", ctx => {
+	code :=ctx.URL.Query().Get("code")
+	state :=ctx.URL.Query().Get("state")
+
+	token, error := account.GetAccessToken(code, state)
+	if error != nil {
+		zlog.Error("err",error) // Redirect to login
+	}
+
+	cookie := http.Cookie{
+		Name: "token",
+		Value: token.AccessToken,
+		Path: "/",
+		MaxAge: 3600,
+	}
+	http.SetCookie(ctx.ResponseWriter, &cookie)
+
+	// Redirect to home page
+	// TODO: Get redirect URL from state
+	http.Redirect(ctx.ResponseWriter, ctx.Request, fmt.Sprintf("http://localhost:8080?token=%s", token.AccessToken), http.StatusFound)
+}
+
+account = core.New()
+zlog.Info "Started in endpoint: ", endpoint
+run endpoint
