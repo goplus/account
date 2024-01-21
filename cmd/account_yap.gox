@@ -5,8 +5,12 @@ import (
 
 	"github.com/casdoor/casdoor-go-sdk/casdoorsdk"
 	"go.uber.org/zap"
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/goplus/account/internal/core"
+	_ "github.com/joho/godotenv/autoload"
+)
+
+var (
+	account *core.Account
 )
 
 endpoint := os.Getenv("GOP_ACCOUNT_ENDPOINT")
@@ -14,41 +18,25 @@ logger, _ := zap.NewProduction()
 defer logger.Sync()
 zlog := logger.Sugar()
 
-get "/p/:id", ctx => {
-	ctx.yap "article", {
-		"id": ctx.param("id"),
-	}
-}
 get "/", ctx => {
 	ctx.yap "home", {}
 }
 
-get "/login",ctx => {
-	casdoorURL := "https://casdoor-community.qiniu.io"
-	clientID := "49a8ac9729e314a05bf0"
-	redirectURI := "http://localhost:8081/callback"
-	ResponseType := "code"
-	Scope := "read"
-	State := "casdoor"
-	loginURL := fmt.Sprintf("%s/login/oauth/authorize?client_id=%s&response_type=%s&redirect_uri=%s&scope=%s&state=%s",casdoorURL,clientID,ResponseType,redirectURI,Scope,State)
-	http.Redirect(ctx.ResponseWriter,ctx.Request,loginURL, http.StatusFound)
+get "/login", ctx => {
+	// Get URL from query string
+	redirectURL := ctx.URL.Query().Get("redirect_url")
+	loginURL := account.RedirectToCasdoor(redirectURL)
+	ctx.Redirect loginURL, http.StatusFound
 }
 
 get "/callback", ctx => {
 	code :=ctx.URL.Query().Get("code")
 	state :=ctx.URL.Query().Get("state")
-	fmt.Println("--code and state--")
-	fmt.Println("code:",code)
-	fmt.Println("state:",state)
-	token, err := casdoorsdk.GetOAuthToken(code, state)
-	if err != nil {
-		fmt.Println("err",err)
-	} 
-	claim, err := casdoorsdk.ParseJwtToken(token.AccessToken)
-	if err != nil {
-		zlog.Error("err",err)
+
+	token, error := account.GetAccessToken(code, state)
+	if error != nil {
+		zlog.Error("err",error) // Redirect to login
 	}
-	username := claim.User.Name
 
 	cookie := http.Cookie{
 		Name: "token",
@@ -58,28 +46,11 @@ get "/callback", ctx => {
 	}
 	http.SetCookie(ctx.ResponseWriter, &cookie)
 
-	ctx.yap "callback", {
-		"username": username,
-		"usertoken": token.AccessToken,
-	}
+	// Redirect to home page
+	// TODO: Get redirect URL from state
+	http.Redirect(ctx.ResponseWriter,ctx.Request,"http://localhost:8080", http.StatusFound)
 }
 
-get "/test", ctx => {
-	cookie, err := ctx.Request.Cookie("token")
-	if err != nil {
-		zlog.Error("err",err)//跳转到登录界面
-	}
-	claim, err := casdoorsdk.ParseJwtToken(cookie.Value)
-	if err != nil {
-		zlog.Error("err",err)//跳转到登录界面
-	} else {
-		fmt.Println("username:",claim.User.Name)
-		fmt.Println("userId:",claim.User.Id)
-		fmt.Println("password:",claim.User.Password)
-	}
-	ctx.yap "test", {}
-}
-
-core.Init
+account = core.New()
 zlog.Info "Started in endpoint: ", endpoint
 run endpoint
