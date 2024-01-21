@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"github.com/goplus/yap"
 	"net/http"
@@ -56,7 +57,7 @@ func (this *account) MainEntry() {
 //line cmd/account_yap.gox:47:1
 		http.SetCookie(ctx.ResponseWriter, &cookie)
 //line cmd/account_yap.gox:51:1
-		http.Redirect(ctx.ResponseWriter, ctx.Request, "http://localhost:8080", http.StatusFound)
+		http.Redirect(ctx.ResponseWriter, ctx.Request, fmt.Sprintf("http://localhost:8080?token=%s", token.AccessToken), http.StatusFound)
 	})
 //line cmd/account_yap.gox:54:1
 	this.account = core.New()

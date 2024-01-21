@@ -48,7 +48,7 @@ get "/callback", ctx => {
 
 	// Redirect to home page
 	// TODO: Get redirect URL from state
-	http.Redirect(ctx.ResponseWriter,ctx.Request,"http://localhost:8080", http.StatusFound)
+	http.Redirect(ctx.ResponseWriter, ctx.Request, fmt.Sprintf("http://localhost:8080?token=%s", token.AccessToken), http.StatusFound)
 }
 
 account = core.New()
